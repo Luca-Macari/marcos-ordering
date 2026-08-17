@@ -31,6 +31,16 @@ type CartItem = {
   name: string;
   details: string[];
   price: number;
+  menu_item_id?: string;
+};
+
+type CheckoutData = {
+  name: string;
+  phone: string;
+  email: string;
+  orderType: "pickup" | "delivery";
+  address: string;
+  notes: string;
 };
 
 export default function HomePage() {
@@ -45,6 +55,19 @@ export default function HomePage() {
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
+  const [orderNumber, setOrderNumber] = useState("");
+  const [placingOrder, setPlacingOrder] = useState(false);
+
+  const [checkout, setCheckout] = useState<CheckoutData>({
+    name: "",
+    phone: "",
+    email: "",
+    orderType: "pickup",
+    address: "",
+    notes: "",
+  });
 
   useEffect(() => {
     async function load() {
@@ -149,12 +172,73 @@ export default function HomePage() {
         name: selectedItem.name,
         details,
         price: currentTotal(),
+        menu_item_id: selectedItem.id,
       },
     ]);
     closeItem();
   };
 
   const cartTotal = cart.reduce((sum, i) => sum + i.price, 0);
+
+  const canPlaceOrder = () => {
+    if (!checkout.name.trim() || !checkout.phone.trim()) return false;
+    if (checkout.orderType === "delivery" && !checkout.address.trim()) return false;
+    return cart.length > 0;
+  };
+
+  const placeOrder = async () => {
+    if (!canPlaceOrder() || placingOrder) return;
+    setPlacingOrder(true);
+
+    try {
+      // Generate a simple order number
+      const orderNum = "M" + Date.now().toString().slice(-6);
+      setOrderNumber(orderNum);
+
+      // Insert the order
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .insert({
+          order_number: orderNum,
+          customer_name: checkout.name.trim(),
+          customer_phone: checkout.phone.trim(),
+          customer_email: checkout.email.trim() || null,
+          order_type: checkout.orderType,
+          status: "pending",
+          subtotal: cartTotal,
+          delivery_fee: 0,
+          total: cartTotal,
+          delivery_address: checkout.orderType === "delivery" ? checkout.address.trim() : null,
+          notes: checkout.notes.trim() || null,
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Insert order items
+      const orderItems = cart.map((item) => ({
+        order_id: order.id,
+        menu_item_id: item.menu_item_id || null,
+        item_name: item.name,
+        quantity: 1,
+        unit_price: item.price,
+        selected_options: item.details,
+      }));
+
+      const { error: itemsError } = await supabase.from("order_items").insert(orderItems);
+      if (itemsError) throw itemsError;
+
+      // Success
+      setCart([]);
+      setIsCheckoutOpen(false);
+      setIsConfirmationOpen(true);
+    } catch (err: any) {
+      alert("Sorry, there was a problem placing your order. Please try again.\n\n" + (err.message || ""));
+    } finally {
+      setPlacingOrder(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -184,7 +268,6 @@ export default function HomePage() {
             borderRadius: 8,
             fontWeight: 600,
             cursor: "pointer",
-            position: "relative",
           }}
         >
           Cart {cart.length > 0 && `(${cart.length})`}
@@ -214,7 +297,6 @@ export default function HomePage() {
                     borderRadius: 10,
                     textAlign: "left",
                     cursor: "pointer",
-                    boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
                   }}
                 >
                   <div>
@@ -234,18 +316,7 @@ export default function HomePage() {
       {selectedItem && (
         <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", justifyContent: "flex-end" }}>
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)" }} onClick={closeItem} />
-          <div
-            style={{
-              position: "relative",
-              width: "100%",
-              maxWidth: 420,
-              background: "#fff",
-              height: "100%",
-              display: "flex",
-              flexDirection: "column",
-              boxShadow: "-4px 0 20px rgba(0,0,0,0.1)",
-            }}
-          >
+          <div style={{ position: "relative", width: "100%", maxWidth: 420, background: "#fff", height: "100%", display: "flex", flexDirection: "column" }}>
             <div style={{ padding: "16px 20px", borderBottom: "1px solid #e5e7eb", display: "flex", justifyContent: "space-between" }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: 18 }}>{selectedItem.name}</h3>
@@ -253,9 +324,7 @@ export default function HomePage() {
                   Base £{Number(selectedItem.base_price).toFixed(2)}
                 </p>
               </div>
-              <button onClick={closeItem} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "#9ca3af" }}>
-                ×
-              </button>
+              <button onClick={closeItem} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "#9ca3af" }}>×</button>
             </div>
 
             <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
@@ -304,7 +373,6 @@ export default function HomePage() {
                   </div>
                 </div>
               ))}
-
               {getGroupsForItem(selectedItem.id).length === 0 && (
                 <p style={{ color: "#6b7280", fontSize: 14 }}>No additional options for this item.</p>
               )}
@@ -337,7 +405,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Simple Cart Drawer */}
+      {/* Cart Drawer */}
       {isCartOpen && (
         <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", justifyContent: "flex-end" }}>
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)" }} onClick={() => setIsCartOpen(false)} />
@@ -367,11 +435,200 @@ export default function HomePage() {
                   <span>Total</span>
                   <span>£{cartTotal.toFixed(2)}</span>
                 </div>
-                <button style={{ width: "100%", padding: 14, background: "#1e3a8a", color: "white", border: "none", borderRadius: 10, fontWeight: 600 }}>
-                  Proceed to Checkout (coming next)
+                <button
+                  onClick={() => {
+                    setIsCartOpen(false);
+                    setIsCheckoutOpen(true);
+                  }}
+                  style={{ width: "100%", padding: 14, background: "#1e3a8a", color: "white", border: "none", borderRadius: 10, fontWeight: 600 }}
+                >
+                  Proceed to Checkout
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Checkout Panel */}
+      {isCheckoutOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)" }} onClick={() => setIsCheckoutOpen(false)} />
+          <div style={{ position: "relative", width: "100%", maxWidth: 440, background: "#fff", height: "100%", display: "flex", flexDirection: "column" }}>
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid #e5e7eb", display: "flex", justifyContent: "space-between" }}>
+              <h3 style={{ margin: 0 }}>Checkout</h3>
+              <button onClick={() => setIsCheckoutOpen(false)} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer" }}>×</button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontWeight: 600, marginBottom: 4, fontSize: 14 }}>Full Name *</label>
+                <input
+                  type="text"
+                  value={checkout.name}
+                  onChange={(e) => setCheckout({ ...checkout, name: e.target.value })}
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 15 }}
+                  placeholder="Your name"
+                />
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontWeight: 600, marginBottom: 4, fontSize: 14 }}>Phone Number *</label>
+                <input
+                  type="tel"
+                  value={checkout.phone}
+                  onChange={(e) => setCheckout({ ...checkout, phone: e.target.value })}
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 15 }}
+                  placeholder="07xxx xxxxxx"
+                />
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontWeight: 600, marginBottom: 4, fontSize: 14 }}>Email (optional)</label>
+                <input
+                  type="email"
+                  value={checkout.email}
+                  onChange={(e) => setCheckout({ ...checkout, email: e.target.value })}
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 15 }}
+                  placeholder="you@example.com"
+                />
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontWeight: 600, marginBottom: 8, fontSize: 14 }}>Order Type *</label>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    onClick={() => setCheckout({ ...checkout, orderType: "pickup" })}
+                    style={{
+                      flex: 1,
+                      padding: "12px",
+                      border: checkout.orderType === "pickup" ? "2px solid #f97316" : "1px solid #d1d5db",
+                      borderRadius: 8,
+                      background: checkout.orderType === "pickup" ? "#fff7ed" : "#fff",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Pickup
+                  </button>
+                  <button
+                    onClick={() => setCheckout({ ...checkout, orderType: "delivery" })}
+                    style={{
+                      flex: 1,
+                      padding: "12px",
+                      border: checkout.orderType === "delivery" ? "2px solid #f97316" : "1px solid #d1d5db",
+                      borderRadius: 8,
+                      background: checkout.orderType === "delivery" ? "#fff7ed" : "#fff",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Delivery
+                  </button>
+                </div>
+              </div>
+
+              {checkout.orderType === "delivery" && (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: "block", fontWeight: 600, marginBottom: 4, fontSize: 14 }}>Delivery Address *</label>
+                  <textarea
+                    value={checkout.address}
+                    onChange={(e) => setCheckout({ ...checkout, address: e.target.value })}
+                    rows={3}
+                    style={{ width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 15, resize: "vertical" }}
+                    placeholder="Full delivery address"
+                  />
+                </div>
+              )}
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontWeight: 600, marginBottom: 4, fontSize: 14 }}>Notes / Special requests</label>
+                <textarea
+                  value={checkout.notes}
+                  onChange={(e) => setCheckout({ ...checkout, notes: e.target.value })}
+                  rows={2}
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 15, resize: "vertical" }}
+                  placeholder="Any special instructions..."
+                />
+              </div>
+
+              <div style={{ background: "#f9fafb", borderRadius: 8, padding: 14, marginTop: 20 }}>
+                <div style={{ fontWeight: 600, marginBottom: 8 }}>Order Summary</div>
+                {cart.map((item) => (
+                  <div key={item.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 4 }}>
+                    <span>{item.name}</span>
+                    <span>£{item.price.toFixed(2)}</span>
+                  </div>
+                ))}
+                <div style={{ borderTop: "1px solid #e5e7eb", marginTop: 8, paddingTop: 8, display: "flex", justifyContent: "space-between", fontWeight: 700 }}>
+                  <span>Total</span>
+                  <span>£{cartTotal.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ padding: 20, borderTop: "1px solid #e5e7eb" }}>
+              <button
+                onClick={placeOrder}
+                disabled={!canPlaceOrder() || placingOrder}
+                style={{
+                  width: "100%",
+                  padding: 14,
+                  background: canPlaceOrder() && !placingOrder ? "#f97316" : "#d1d5db",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 10,
+                  fontWeight: 600,
+                  fontSize: 16,
+                  cursor: canPlaceOrder() && !placingOrder ? "pointer" : "not-allowed",
+                }}
+              >
+                {placingOrder ? "Placing order..." : "Place Order"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation */}
+      {isConfirmationOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.5)" }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 32, maxWidth: 400, width: "90%", textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>✓</div>
+            <h2 style={{ margin: "0 0 8px", color: "#1e3a8a" }}>Thank you!</h2>
+            <p style={{ color: "#6b7280", marginBottom: 16 }}>
+              Your order has been received.
+            </p>
+            <p style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>
+              Order number: {orderNumber}
+            </p>
+            <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 24 }}>
+              We will confirm your order shortly.
+            </p>
+            <button
+              onClick={() => {
+                setIsConfirmationOpen(false);
+                setCheckout({
+                  name: "",
+                  phone: "",
+                  email: "",
+                  orderType: "pickup",
+                  address: "",
+                  notes: "",
+                });
+              }}
+              style={{
+                background: "#1e3a8a",
+                color: "white",
+                border: "none",
+                padding: "12px 28px",
+                borderRadius: 8,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Back to Menu
+            </button>
           </div>
         </div>
       )}
