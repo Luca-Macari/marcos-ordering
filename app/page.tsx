@@ -1,12 +1,12 @@
 import { supabase } from "@/lib/supabase";
 
 export default async function HomePage() {
-  const { data: categories } = await supabase
+  const { data: categories, error: catError } = await supabase
     .from("categories")
     .select("*")
     .order("sort_order");
 
-  const { data: menuItems } = await supabase
+  const { data: menuItems, error: itemError } = await supabase
     .from("menu_items")
     .select("*")
     .order("sort_order");
@@ -16,6 +16,20 @@ export default async function HomePage() {
       <h1 style={{ color: "#1e3a8a" }}>Marco&apos;s On The Shore</h1>
       <p style={{ color: "#6b7280" }}>Family run fish &amp; chip shop • Est. 1997</p>
       <hr />
+
+      {catError && (
+        <p style={{ color: "red", fontWeight: "bold" }}>
+          Categories error: {catError.message}
+        </p>
+      )}
+      {itemError && (
+        <p style={{ color: "red", fontWeight: "bold" }}>
+          Items error: {itemError.message}
+        </p>
+      )}
+
+      <p>Categories found: {categories?.length ?? 0}</p>
+      <p>Menu items found: {menuItems?.length ?? 0}</p>
 
       {categories?.map((cat) => (
         <div key={cat.id} style={{ marginBottom: "40px" }}>
