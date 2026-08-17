@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase } from "../lib/supabase";
 
 export default async function HomePage() {
   const { data: categories, error: catError } = await supabase
