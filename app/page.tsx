@@ -1,5 +1,7 @@
 "use client";
 
+const ORDERING_ENABLED = false;   // ← set to true when you want to go live
+
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
@@ -274,6 +276,20 @@ export default function HomePage() {
         </button>
       </header>
 
+	{!ORDERING_ENABLED && (
+  <div style={{
+    background: "#fef3c7",
+    color: "#92400e",
+    padding: "12px 16px",
+    borderRadius: 8,
+    marginBottom: 20,
+    textAlign: "center",
+    fontWeight: 600,
+  }}>
+    Online ordering is temporarily unavailable. Please call the shop to place an order.
+  </div>
+)}
+
       {/* Menu */}
       {categories.map((cat) => (
         <section key={cat.id} style={{ marginBottom: 36 }}>
@@ -384,22 +400,26 @@ export default function HomePage() {
                 <span style={{ fontSize: 20, fontWeight: 700 }}>£{currentTotal().toFixed(2)}</span>
               </div>
               <button
-                onClick={addToCart}
-                disabled={!canAdd()}
-                style={{
-                  width: "100%",
-                  padding: "14px",
-                  background: canAdd() ? "#f97316" : "#d1d5db",
-                  color: "white",
-                  border: "none",
-                  borderRadius: 10,
-                  fontWeight: 600,
-                  fontSize: 16,
-                  cursor: canAdd() ? "pointer" : "not-allowed",
-                }}
-              >
-                {canAdd() ? "Add to cart" : "Please select required options"}
-              </button>
+  		onClick={addToCart}
+  		disabled={!canAdd() || !ORDERING_ENABLED}
+  		style={{
+   		 width: "100%",
+   		 padding: "14px",
+   		 background: canAdd() && ORDERING_ENABLED ? "#f97316" : "#d1d5db",
+    		 color: "white",
+    		 border: "none",
+    		 borderRadius: 10,
+   		 fontWeight: 600,
+  		 fontSize: 16,
+    		 cursor: canAdd() && ORDERING_ENABLED ? "pointer" : "not-allowed",
+   		}}
+	       >
+  		{!ORDERING_ENABLED
+   		 ? "Ordering temporarily unavailable"
+    		 : canAdd()
+   		 ? "Add to cart"
+    		 : "Please select required options"}
+		</button>
             </div>
           </div>
         </div>
