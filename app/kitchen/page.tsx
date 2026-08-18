@@ -31,6 +31,8 @@ type OrderItem = {
   notes: string | null;
 };
 
+type Tab = "pending" | "inprogress" | "ready";
+
 export default function KitchenPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
@@ -39,17 +41,16 @@ export default function KitchenPage() {
   const [showTimeInput, setShowTimeInput] = useState(false);
   const [minutes, setMinutes] = useState("25");
   const [processing, setProcessing] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("pending");
 
   const loadOrders = async () => {
     const { data: ordersData } = await supabase
       .from("orders")
       .select("*")
-      .in("status", ["pending", "accepted", "preparing"])
+      .in("status", ["pending", "accepted", "preparing", "ready"])
       .order("created_at", { ascending: false });
 
-    const { data: itemsData } = await supabase
-      .from("order_items")
-      .select("*");
+    const { data: itemsData } = await supabase.from("order_items").select("*");
 
     if (ordersData) setOrders(ordersData);
     if (itemsData) setOrderItems(itemsData);
@@ -58,8 +59,7 @@ export default function KitchenPage() {
 
   useEffect(() => {
     loadOrders();
-    // Refresh every 15 seconds
-    const interval = setInterval(loadOrders, 15000);
+    const interval = setInterval(loadOrders, 10000); // every 10 seconds
     return () => clearInterval(interval);
   }, []);
 
@@ -87,6 +87,7 @@ export default function KitchenPage() {
     } else {
       setShowTimeInput(false);
       setSelectedOrder(null);
+      setActiveTab("inprogress");
       await loadOrders();
     }
     setProcessing(false);
@@ -111,8 +112,33 @@ export default function KitchenPage() {
     setProcessing(false);
   };
 
+  const markReady = async (orderId: string) => {
+    setProcessing(true);
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: "ready" })
+      .eq("id", orderId);
+
+    if (error) {
+      alert("Error: " + error.message);
+    } else {
+      setSelectedOrder(null);
+      setActiveTab("ready");
+      await loadOrders();
+    }
+    setProcessing(false);
+  };
+
   const pendingOrders = orders.filter((o) => o.status === "pending");
-  const acceptedOrders = orders.filter((o) => o.status === "accepted" || o.status === "preparing");
+  const inProgressOrders = orders.filter((o) => o.status === "accepted" || o.status === "preparing");
+  const readyOrders = orders.filter((o) => o.status === "ready");
+
+  const displayedOrders =
+    activeTab === "pending"
+      ? pendingOrders
+      : activeTab === "inprogress"
+      ? inProgressOrders
+      : readyOrders;
 
   if (loading) {
     return (
@@ -124,100 +150,96 @@ export default function KitchenPage() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: 16, fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f8fafc" }}>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+      {/* Header */}
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 22, color: "#1e3a8a" }}>Kitchen Orders</h1>
           <p style={{ margin: "2px 0 0", fontSize: 13, color: "#64748b" }}>
-            {pendingOrders.length} pending • {acceptedOrders.length} in progress
+            {pendingOrders.length} pending • {inProgressOrders.length} in progress • {readyOrders.length} ready
           </p>
         </div>
         <button
           onClick={loadOrders}
-          style={{
-            background: "#e2e8f0",
-            border: "none",
-            padding: "8px 14px",
-            borderRadius: 8,
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
+          style={{ background: "#e2e8f0", border: "none", padding: "8px 14px", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}
         >
           Refresh
         </button>
       </header>
 
-      {/* Pending Orders */}
-      {pendingOrders.length > 0 && (
-        <section style={{ marginBottom: 28 }}>
-          <h2 style={{ fontSize: 16, color: "#dc2626", marginBottom: 10 }}>New Orders – Action Needed</h2>
-          <div style={{ display: "grid", gap: 12 }}>
-            {pendingOrders.map((order) => (
-              <button
-                key={order.id}
-                onClick={() => setSelectedOrder(order)}
-                style={{
-                  textAlign: "left",
-                  background: "#fff",
-                  border: "2px solid #fca5a5",
-                  borderRadius: 12,
-                  padding: 16,
-                  cursor: "pointer",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ fontWeight: 700, fontSize: 17 }}>{order.order_number}</span>
-                  <span style={{ fontWeight: 700, fontSize: 17 }}>£{Number(order.total).toFixed(2)}</span>
-                </div>
-                <div style={{ fontSize: 14, color: "#334155" }}>
-                  {order.customer_name} • {order.order_type === "delivery" ? "Delivery" : "Pickup"}
-                </div>
-                <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
-                  {new Date(order.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </div>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 20, background: "#e2e8f0", borderRadius: 10, padding: 4 }}>
+        {[
+          { key: "pending", label: `Pending (${pendingOrders.length})`, color: "#dc2626" },
+          { key: "inprogress", label: `In Progress (${inProgressOrders.length})`, color: "#16a34a" },
+          { key: "ready", label: `Ready (${readyOrders.length})`, color: "#2563eb" },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key as Tab)}
+            style={{
+              flex: 1,
+              padding: "10px 8px",
+              border: "none",
+              borderRadius: 8,
+              fontWeight: 600,
+              fontSize: 14,
+              cursor: "pointer",
+              background: activeTab === tab.key ? "#fff" : "transparent",
+              color: activeTab === tab.key ? tab.color : "#64748b",
+              boxShadow: activeTab === tab.key ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-      {/* Accepted / In Progress */}
-      {acceptedOrders.length > 0 && (
-        <section>
-          <h2 style={{ fontSize: 16, color: "#16a34a", marginBottom: 10 }}>Accepted / In Progress</h2>
-          <div style={{ display: "grid", gap: 12 }}>
-            {acceptedOrders.map((order) => (
-              <button
-                key={order.id}
-                onClick={() => setSelectedOrder(order)}
-                style={{
-                  textAlign: "left",
-                  background: "#fff",
-                  border: "1px solid #bbf7d0",
-                  borderRadius: 12,
-                  padding: 16,
-                  cursor: "pointer",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ fontWeight: 700 }}>{order.order_number}</span>
-                  <span style={{ color: "#16a34a", fontWeight: 600, fontSize: 13 }}>Accepted</span>
-                </div>
-                <div style={{ fontSize: 14 }}>{order.customer_name}</div>
-                {order.estimated_ready_at && (
-                  <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
-                    Ready around {new Date(order.estimated_ready_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {orders.length === 0 && (
+      {/* Order List */}
+      {displayedOrders.length === 0 ? (
         <div style={{ textAlign: "center", padding: 60, color: "#94a3b8" }}>
-          No active orders at the moment
+          No orders in this section
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: 12 }}>
+          {displayedOrders.map((order) => (
+            <button
+              key={order.id}
+              onClick={() => setSelectedOrder(order)}
+              style={{
+                textAlign: "left",
+                background: "#fff",
+                border:
+                  order.status === "pending"
+                    ? "2px solid #fca5a5"
+                    : order.status === "ready"
+                    ? "2px solid #93c5fd"
+                    : "1px solid #bbf7d0",
+                borderRadius: 12,
+                padding: 16,
+                cursor: "pointer",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontWeight: 700, fontSize: 17 }}>{order.order_number}</span>
+                <span style={{ fontWeight: 700, fontSize: 17 }}>£{Number(order.total).toFixed(2)}</span>
+              </div>
+              <div style={{ fontSize: 14, color: "#334155" }}>
+                {order.customer_name} • {order.order_type === "delivery" ? "Delivery" : "Pickup"}
+              </div>
+              <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
+                {new Date(order.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                {order.estimated_ready_at && order.status !== "pending" && (
+                  <> • Ready ~ {new Date(order.estimated_ready_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</>
+                )}
+              </div>
+              {order.status === "pending" && (
+                <div style={{ marginTop: 8, fontSize: 13, fontWeight: 600, color: "#dc2626" }}>
+                  Action needed
+                </div>
+              )}
+            </button>
+          ))}
         </div>
       )}
 
@@ -279,63 +301,46 @@ export default function KitchenPage() {
               </div>
             </div>
 
-            {selectedOrder.status === "pending" && (
-              <div style={{ padding: 16, borderTop: "1px solid #e2e8f0", display: "flex", gap: 12 }}>
-                <button
-                  onClick={declineOrder}
-                  disabled={processing}
-                  style={{
-                    flex: 1,
-                    padding: 16,
-                    background: "#ef4444",
-                    color: "white",
-                    border: "none",
-                    borderRadius: 12,
-                    fontWeight: 700,
-                    fontSize: 16,
-                    cursor: "pointer",
-                  }}
-                >
-                  Decline
-                </button>
-                <button
-                  onClick={() => setShowTimeInput(true)}
-                  disabled={processing}
-                  style={{
-                    flex: 2,
-                    padding: 16,
-                    background: "#16a34a",
-                    color: "white",
-                    border: "none",
-                    borderRadius: 12,
-                    fontWeight: 700,
-                    fontSize: 16,
-                    cursor: "pointer",
-                  }}
-                >
-                  Accept
-                </button>
-              </div>
-            )}
+            {/* Action buttons */}
+            <div style={{ padding: 16, borderTop: "1px solid #e2e8f0", display: "flex", gap: 12 }}>
+              {selectedOrder.status === "pending" && (
+                <>
+                  <button
+                    onClick={declineOrder}
+                    disabled={processing}
+                    style={{ flex: 1, padding: 16, background: "#ef4444", color: "white", border: "none", borderRadius: 12, fontWeight: 700, fontSize: 16, cursor: "pointer" }}
+                  >
+                    Decline
+                  </button>
+                  <button
+                    onClick={() => setShowTimeInput(true)}
+                    disabled={processing}
+                    style={{ flex: 2, padding: 16, background: "#16a34a", color: "white", border: "none", borderRadius: 12, fontWeight: 700, fontSize: 16, cursor: "pointer" }}
+                  >
+                    Accept
+                  </button>
+                </>
+              )}
 
-            {selectedOrder.status !== "pending" && (
-              <div style={{ padding: 16, borderTop: "1px solid #e2e8f0" }}>
+              {(selectedOrder.status === "accepted" || selectedOrder.status === "preparing") && (
+                <button
+                  onClick={() => markReady(selectedOrder.id)}
+                  disabled={processing}
+                  style={{ flex: 1, padding: 16, background: "#2563eb", color: "white", border: "none", borderRadius: 12, fontWeight: 700, fontSize: 16, cursor: "pointer" }}
+                >
+                  Mark as Ready
+                </button>
+              )}
+
+              {selectedOrder.status === "ready" && (
                 <button
                   onClick={() => setSelectedOrder(null)}
-                  style={{
-                    width: "100%",
-                    padding: 14,
-                    background: "#e2e8f0",
-                    border: "none",
-                    borderRadius: 10,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
+                  style={{ flex: 1, padding: 14, background: "#e2e8f0", border: "none", borderRadius: 10, fontWeight: 600, cursor: "pointer" }}
                 >
                   Close
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -350,7 +355,7 @@ export default function KitchenPage() {
             </p>
 
             <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 20 }}>
-              {["15", "20", "25", "30", "40"].map((m) => (
+              {["10", "15", "20", "45", "60"].map((m) => (
                 <button
                   key={m}
                   onClick={() => setMinutes(m)}
@@ -391,32 +396,14 @@ export default function KitchenPage() {
             <div style={{ display: "flex", gap: 12 }}>
               <button
                 onClick={() => setShowTimeInput(false)}
-                style={{
-                  flex: 1,
-                  padding: 14,
-                  background: "#e2e8f0",
-                  border: "none",
-                  borderRadius: 10,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
+                style={{ flex: 1, padding: 14, background: "#e2e8f0", border: "none", borderRadius: 10, fontWeight: 600, cursor: "pointer" }}
               >
                 Back
               </button>
               <button
                 onClick={acceptOrder}
                 disabled={processing}
-                style={{
-                  flex: 2,
-                  padding: 14,
-                  background: "#16a34a",
-                  color: "white",
-                  border: "none",
-                  borderRadius: 10,
-                  fontWeight: 700,
-                  fontSize: 16,
-                  cursor: "pointer",
-                }}
+                style={{ flex: 2, padding: 14, background: "#16a34a", color: "white", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 16, cursor: "pointer" }}
               >
                 {processing ? "Saving..." : `Accept (${minutes} min)`}
               </button>
