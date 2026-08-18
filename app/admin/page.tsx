@@ -50,16 +50,11 @@ export default function AdminPage() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<"menu" | "choices">("menu");
 
-  // Edit item
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
-  // Add item
   const [showAddItem, setShowAddItem] = useState(false);
   const [newItem, setNewItem] = useState({ category_id: "", name: "", description: "", base_price: 0 });
-  // Edit group
   const [editingGroup, setEditingGroup] = useState<ModifierGroup | null>(null);
-  // Attach groups
   const [attachItem, setAttachItem] = useState<MenuItem | null>(null);
-
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
@@ -246,7 +241,7 @@ export default function AdminPage() {
         </button>
       </div>
 
-      {/* ========== MENU ITEMS TAB ========== */}
+      {/* MENU ITEMS TAB */}
       {activeTab === "menu" && (
         <>
           <div style={{ marginBottom: 16 }}>
@@ -284,8 +279,8 @@ export default function AdminPage() {
                       const itemGroups = getGroupsForItem(item.id);
                       return (
                         <div key={item.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px", borderBottom: "1px solid #f1f5f9", opacity: item.is_available ? 1 : 0.65 }}>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                               <span style={{ fontWeight: 600 }}>{item.name}</span>
                               {!item.is_available && (
                                 <span style={{ background: "#fee2e2", color: "#b91c1c", fontSize: 11, fontWeight: 600, padding: "2px 6px", borderRadius: 4 }}>OUT OF STOCK</span>
@@ -301,8 +296,8 @@ export default function AdminPage() {
                             )}
                           </div>
 
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ fontWeight: 600, minWidth: 60, textAlign: "right" }}>£{Number(item.base_price).toFixed(2)}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                            <span style={{ fontWeight: 600, minWidth: 55, textAlign: "right" }}>£{Number(item.base_price).toFixed(2)}</span>
                             <button onClick={() => toggleAvailability(item)} style={{ padding: "6px 10px", borderRadius: 6, border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", background: item.is_available ? "#dcfce7" : "#fee2e2", color: item.is_available ? "#166534" : "#b91c1c" }}>
                               {item.is_available ? "Available" : "Out of stock"}
                             </button>
@@ -324,7 +319,7 @@ export default function AdminPage() {
         </>
       )}
 
-      {/* ========== CHOICES & ADDONS TAB ========== */}
+      {/* CHOICES & ADDONS TAB */}
       {activeTab === "choices" && (
         <div>
           <p style={{ color: "#64748b", marginBottom: 16, fontSize: 14 }}>
@@ -365,24 +360,24 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* ========== MODALS ========== */}
+      {/* ========== MODALS (fixed overflow) ========== */}
 
-      {/* Edit Item Modal */}
+      {/* Edit Item */}
       {editingItem && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "#fff", borderRadius: 16, padding: 24, width: "90%", maxWidth: 440 }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 24, width: "100%", maxWidth: 440, maxHeight: "90vh", overflowY: "auto" }}>
             <h2 style={{ margin: "0 0 20px", fontSize: 20 }}>Edit Item</h2>
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: "block", fontWeight: 600, marginBottom: 4, fontSize: 14 }}>Name</label>
-              <input type="text" value={editingItem.name} onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 15 }} />
+              <input type="text" value={editingItem.name} onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }} />
             </div>
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: "block", fontWeight: 600, marginBottom: 4, fontSize: 14 }}>Description</label>
-              <textarea value={editingItem.description || ""} onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })} rows={2} style={{ width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 15, resize: "vertical" }} />
+              <textarea value={editingItem.description || ""} onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })} rows={2} style={{ width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 15, resize: "vertical", boxSizing: "border-box" }} />
             </div>
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: "block", fontWeight: 600, marginBottom: 4, fontSize: 14 }}>Price (£)</label>
-              <input type="number" step="0.10" value={editingItem.base_price} onChange={(e) => setEditingItem({ ...editingItem, base_price: parseFloat(e.target.value) || 0 })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 15 }} />
+              <input type="number" step="0.10" value={editingItem.base_price} onChange={(e) => setEditingItem({ ...editingItem, base_price: parseFloat(e.target.value) || 0 })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }} />
             </div>
             <div style={{ marginBottom: 24 }}>
               <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
@@ -398,29 +393,29 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Add Item Modal */}
+      {/* Add Item */}
       {showAddItem && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "#fff", borderRadius: 16, padding: 24, width: "90%", maxWidth: 440 }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 24, width: "100%", maxWidth: 440, maxHeight: "90vh", overflowY: "auto" }}>
             <h2 style={{ margin: "0 0 20px", fontSize: 20 }}>Add New Item</h2>
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: "block", fontWeight: 600, marginBottom: 4, fontSize: 14 }}>Category *</label>
-              <select value={newItem.category_id} onChange={(e) => setNewItem({ ...newItem, category_id: e.target.value })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 15 }}>
+              <select value={newItem.category_id} onChange={(e) => setNewItem({ ...newItem, category_id: e.target.value })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }}>
                 <option value="">Select category...</option>
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: "block", fontWeight: 600, marginBottom: 4, fontSize: 14 }}>Name *</label>
-              <input type="text" value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 15 }} />
+              <input type="text" value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }} />
             </div>
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: "block", fontWeight: 600, marginBottom: 4, fontSize: 14 }}>Description</label>
-              <textarea value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} rows={2} style={{ width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 15, resize: "vertical" }} />
+              <textarea value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} rows={2} style={{ width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 15, resize: "vertical", boxSizing: "border-box" }} />
             </div>
             <div style={{ marginBottom: 24 }}>
               <label style={{ display: "block", fontWeight: 600, marginBottom: 4, fontSize: 14 }}>Price (£)</label>
-              <input type="number" step="0.10" value={newItem.base_price} onChange={(e) => setNewItem({ ...newItem, base_price: parseFloat(e.target.value) || 0 })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 15 }} />
+              <input type="number" step="0.10" value={newItem.base_price} onChange={(e) => setNewItem({ ...newItem, base_price: parseFloat(e.target.value) || 0 })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }} />
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setShowAddItem(false)} style={{ flex: 1, padding: 12, background: "#e2e8f0", border: "none", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
@@ -430,14 +425,14 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Edit Group Modal */}
+      {/* Edit Group */}
       {editingGroup && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "#fff", borderRadius: 16, padding: 24, width: "90%", maxWidth: 420 }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 24, width: "100%", maxWidth: 420, maxHeight: "90vh", overflowY: "auto" }}>
             <h2 style={{ margin: "0 0 20px", fontSize: 20 }}>Edit Choice Group</h2>
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: "block", fontWeight: 600, marginBottom: 4, fontSize: 14 }}>Name</label>
-              <input type="text" value={editingGroup.name} onChange={(e) => setEditingGroup({ ...editingGroup, name: e.target.value })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 15 }} />
+              <input type="text" value={editingGroup.name} onChange={(e) => setEditingGroup({ ...editingGroup, name: e.target.value })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }} />
             </div>
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
@@ -448,11 +443,11 @@ export default function AdminPage() {
             <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
               <div style={{ flex: 1 }}>
                 <label style={{ display: "block", fontWeight: 600, marginBottom: 4, fontSize: 14 }}>Min selections</label>
-                <input type="number" min={0} value={editingGroup.min_selections} onChange={(e) => setEditingGroup({ ...editingGroup, min_selections: parseInt(e.target.value) || 0 })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 15 }} />
+                <input type="number" min={0} value={editingGroup.min_selections} onChange={(e) => setEditingGroup({ ...editingGroup, min_selections: parseInt(e.target.value) || 0 })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }} />
               </div>
               <div style={{ flex: 1 }}>
                 <label style={{ display: "block", fontWeight: 600, marginBottom: 4, fontSize: 14 }}>Max selections</label>
-                <input type="number" min={1} value={editingGroup.max_selections} onChange={(e) => setEditingGroup({ ...editingGroup, max_selections: parseInt(e.target.value) || 1 })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 15 }} />
+                <input type="number" min={1} value={editingGroup.max_selections} onChange={(e) => setEditingGroup({ ...editingGroup, max_selections: parseInt(e.target.value) || 1 })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }} />
               </div>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
@@ -463,37 +458,50 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Attach / Detach Groups Modal */}
+      {/* Attach / Detach Choices – fixed to show ALL groups */}
       {attachItem && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "#fff", borderRadius: 16, padding: 24, width: "90%", maxWidth: 440, maxHeight: "80vh", overflowY: "auto" }}>
-            <h2 style={{ margin: "0 0 8px", fontSize: 20 }}>Choices for “{attachItem.name}”</h2>
-            <p style={{ color: "#64748b", fontSize: 14, marginBottom: 20 }}>Attach or remove option groups for this item</p>
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 24, width: "100%", maxWidth: 460, maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
+            <h2 style={{ margin: "0 0 6px", fontSize: 20 }}>Choices for “{attachItem.name}”</h2>
+            <p style={{ color: "#64748b", fontSize: 14, marginBottom: 16 }}>Attach or remove option groups for this item</p>
 
-            {groups.map((group) => {
-              const isAttached = links.some((l) => l.menu_item_id === attachItem.id && l.modifier_group_id === group.id);
-              return (
-                <div key={group.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid #f1f5f9" }}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{group.name}</div>
-                    <div style={{ fontSize: 12, color: "#64748b" }}>
-                      {group.is_required ? "Required" : "Optional"} • Min {group.min_selections} / Max {group.max_selections}
+            <div style={{ flex: 1, overflowY: "auto", marginBottom: 16 }}>
+              {groups.map((group) => {
+                const isAttached = links.some((l) => l.menu_item_id === attachItem.id && l.modifier_group_id === group.id);
+                return (
+                  <div key={group.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid #f1f5f9" }}>
+                    <div style={{ paddingRight: 12 }}>
+                      <div style={{ fontWeight: 600 }}>{group.name}</div>
+                      <div style={{ fontSize: 12, color: "#64748b" }}>
+                        {group.is_required ? "Required" : "Optional"} • Min {group.min_selections} / Max {group.max_selections}
+                      </div>
                     </div>
+                    {isAttached ? (
+                      <button
+                        onClick={() => detachGroup(group.id)}
+                        disabled={saving}
+                        style={{ padding: "7px 14px", background: "#fee2e2", color: "#b91c1c", border: "none", borderRadius: 6, fontWeight: 600, cursor: "pointer", fontSize: 13, flexShrink: 0 }}
+                      >
+                        Remove
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => attachGroup(group.id)}
+                        disabled={saving}
+                        style={{ padding: "7px 14px", background: "#dcfce7", color: "#166534", border: "none", borderRadius: 6, fontWeight: 600, cursor: "pointer", fontSize: 13, flexShrink: 0 }}
+                      >
+                        Attach
+                      </button>
+                    )}
                   </div>
-                  {isAttached ? (
-                    <button onClick={() => detachGroup(group.id)} disabled={saving} style={{ padding: "6px 12px", background: "#fee2e2", color: "#b91c1c", border: "none", borderRadius: 6, fontWeight: 600, cursor: "pointer", fontSize: 13 }}>
-                      Remove
-                    </button>
-                  ) : (
-                    <button onClick={() => attachGroup(group.id)} disabled={saving} style={{ padding: "6px 12px", background: "#dcfce7", color: "#166534", border: "none", borderRadius: 6, fontWeight: 600, cursor: "pointer", fontSize: 13 }}>
-                      Attach
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
 
-            <button onClick={() => setAttachItem(null)} style={{ width: "100%", marginTop: 20, padding: 12, background: "#e2e8f0", border: "none", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>
+            <button
+              onClick={() => setAttachItem(null)}
+              style={{ width: "100%", padding: 13, background: "#e2e8f0", border: "none", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}
+            >
               Done
             </button>
           </div>
